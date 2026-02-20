@@ -1,81 +1,7 @@
-import { useState, useRef } from "react";
-import { Home, LayoutGrid, Camera, Users, Shield, ClipboardList, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Clock, Eye, Wrench, Star, Phone, Mail, FileText, Upload, Plus, Calendar, DollarSign, ArrowUpRight, Zap, Droplets, Flame, Plug, UtensilsCrossed, TreePine, DoorOpen, ShieldAlert, Info, X } from "lucide-react";
-
-const P = {
-  address: "25780 N. St. Mary's Rd.",
-  city: "Mettawa, IL 60048",
-  built: 1986,
-  inspected: "2025-03-31",
-  inspector: "Ken D'Alexander",
-  co: "Complete Property Inspections Inc.",
-  email: "home-m3tt4w4@inbound.homeguard.app",
-};
-
-const OPTS = {
-  c1: [
-    {name:"Cedar Shake (like-for-like)",life:"25–40 yrs",cost:[35000,65000],pros:["Authentic look","Matches original build"],cons:["Highest cost","Requires ongoing maintenance","Fire risk without treatment"],note:"Costs vary heavily by region and roof complexity."},
-    {name:"Architectural Asphalt Shingles",life:"20–30 yrs",cost:[18000,35000],pros:["Most affordable","Low maintenance","Wide color selection"],cons:["Shorter lifespan","Less distinctive appearance"],note:"Most common replacement choice nationally."},
-    {name:"Metal Standing Seam",life:"40–70 yrs",cost:[30000,55000],pros:["Longest lifespan","Near-zero maintenance","Potential insurance discount"],cons:["Higher upfront cost","Noise in heavy rain","Fewer contractors available"],note:"Growing in popularity. Check with your insurer about discounts."},
-    {name:"Synthetic Shake (DaVinci, Brava)",life:"30–50 yrs",cost:[28000,50000],pros:["Looks like real cedar","Class A fire rated","Lower maintenance than real wood"],cons:["Newer product, less long-term data","Mid-high cost"],note:"Relatively new category. Warranty terms vary by manufacturer."},
-  ],
-  c9: [
-    {name:"Pressure-Treated Lumber",life:"15–25 yrs",cost:[2000,6000],pros:["Most affordable","Widely available","Easy to work with"],cons:["Requires sealing/staining","Can warp over time"],note:"Standard choice for structural repair."},
-    {name:"Composite/Engineered Wood",life:"25–40 yrs",cost:[4000,10000],pros:["Rot resistant","Low maintenance","Longer lifespan"],cons:["Higher upfront cost","Heavier material"],note:"Good option if moisture was the original cause of rot."},
-  ],
-  c7: [
-    {name:"Poured Concrete (replace in kind)",life:"25–40 yrs",cost:[8000,20000],pros:["Durable","Familiar to contractors"],cons:["Can crack again over time","Drainage must be corrected separately"],note:"Address grading/drainage first or new concrete will have the same issues."},
-    {name:"Concrete Pavers",life:"25–50 yrs",cost:[12000,30000],pros:["Individual pavers replaceable","Better drainage","Premium look"],cons:["Higher cost","Can shift/settle without proper base"],note:"Allows for better water management around pool area."},
-    {name:"Resurface/Mudjack Existing",life:"5–10 yrs",cost:[3000,8000],pros:["Lowest cost","Less disruption"],cons:["Temporary fix","Doesn't address underlying issues"],note:"Only worthwhile if settling is minor. Inspector noted significant cracking."},
-  ],
-  c8: [
-    {name:"Regrading (soil work)",life:"10–20 yrs",cost:[2000,8000],pros:["Addresses root cause","Protects foundation"],cons:["May need to redo landscaping","Effectiveness depends on execution"],note:"Should be done before or alongside any patio/walkway work."},
-    {name:"French Drain System",life:"15–30 yrs",cost:[4000,12000],pros:["Handles heavy water flow","Works with existing grade"],cons:["Invasive to install","Requires maintenance"],note:"Consider if regrading alone is insufficient."},
-  ],
-  c18: [
-    {name:"Repair Existing Operator",life:"3–8 yrs additional",cost:[150,400],pros:["Cheapest option","Quick fix"],cons:["May fail again","No new warranty"],note:"Could be a sensor, logic board, or limit switch issue."},
-    {name:"Replace Operator (belt-drive)",life:"10–15 yrs",cost:[300,600],pros:["Quieter than chain","New warranty","Modern safety features"],cons:["Moderate cost"],note:"Belt-drive recommended for attached garages."},
-  ],
-};
-
-const CC = [
-  {id:"c1",cat:"Roof/Exterior",name:"Cedar Shake Roof",loc:"Main roof",mfr:null,mod:null,ser:null,yr:"1986",conf:"est",age:39,cond:"poor",life:[25,40,32],rem:-7,cost:[35000,65000],notes:"Several areas worn with deterioration/dry-rot; warped/loose shakes.",defs:["Deterioration/dry-rot","Warped/loose shakes"],recs:["Have qualified roofer evaluate","Full replacement recommended"],mt:[{t:"Visual inspection",f:6,c:0,d:true,n:"2025-10-01"},{t:"Professional inspection",f:24,c:400,d:false,n:"2025-10-01"}],u:"critical",ph:[],fi:[]},
-  {id:"c2",cat:"Plumbing",name:"Rheem Gas Water Heater",loc:"Basement utility",mfr:"Rheem",mod:"XG75T06ST76U0",ser:"Q322427664",yr:"2024",conf:"exact",age:0.6,cond:"poor",life:[8,15,11],rem:10.4,cost:[1800,3500],notes:"Unit was OFF at inspection; pilot light/gas ignition failed; hot water could not be validated. This is a brand-new unit that likely needs service, not replacement.",defs:["Non-functional at inspection","Could not validate hot water"],recs:["Validate operation BEFORE closing","Contact installer for warranty service"],mt:[{t:"Flush tank",f:12,c:0,d:true,n:"2025-08-01"},{t:"Test T&P valve",f:12,c:0,d:true,n:"2025-08-01"},{t:"Inspect anode rod",f:36,c:30,d:true,n:"2027-08-01"}],u:"critical",ph:[],fi:[]},
-  {id:"c3",cat:"HVAC",name:"Carrier Gas Furnace",loc:"Basement utility",mfr:"Carrier",mod:"59MN7A120V24",ser:"3617A52548",yr:"2017",conf:"exact",age:7.5,cond:"functional",life:[15,25,18],rem:10.5,cost:[5500,9000],notes:"Worked when tested. Seasonal maintenance recommended.",defs:[],recs:["Seasonal HVAC maintenance"],mt:[{t:"Replace air filter",f:3,c:25,d:true,n:"2025-06-01"},{t:"Professional tune-up",f:12,c:175,d:false,n:"2025-09-15",s:"Fall"},{t:"Clean condensate drain",f:12,c:0,d:true,n:"2025-09-01"}],u:"monitor",ph:[],fi:[]},
-  {id:"c4",cat:"HVAC",name:"Ducane Central AC",loc:"Exterior",mfr:"Ducane",mod:"4AC13L48P-10A",ser:"1922J14042",yr:"2022",conf:"exact",age:3,cond:"not tested",life:[12,20,15],rem:12,cost:[5500,9500],notes:"Not tested due to temperature. 4-ton unit; home may need dual units.",defs:["Not tested at inspection","Possible undersizing"],recs:["Request seller service records","HVAC contractor to evaluate sizing"],mt:[{t:"Replace air filter",f:3,c:25,d:true,n:"2025-06-01"},{t:"Professional tune-up",f:12,c:175,d:false,n:"2025-04-15",s:"Spring"},{t:"Clean condenser coils",f:12,c:0,d:true,n:"2025-05-01"}],u:"attention",ph:[],fi:[]},
-  {id:"c5",cat:"Electrical",name:"Crouse-Hinds Main Panel",loc:"Utility area",mfr:"Crouse-Hinds",mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"fair",life:[25,50,40],rem:null,cost:[2000,4500],notes:"200A service. Multiple wiring issues.",defs:["Amateur wiring","Doubled breakers","Missing knockouts","Missing arc-fault breakers"],recs:["Electrician to evaluate and correct"],mt:[{t:"Visual inspection",f:12,c:0,d:true,n:"2025-09-01"}],u:"attention",ph:[],fi:[]},
-  {id:"c6",cat:"Electrical",name:"Siemens Sub-Panel",loc:"Utility area",mfr:"Siemens",mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"fair",life:[25,50,40],rem:null,cost:[1500,3000],notes:"100A sub-panel; limited visibility.",defs:["Needs evaluation"],recs:["Evaluate with main panel"],mt:[],u:"attention",ph:[],fi:[]},
-  {id:"c7",cat:"Landscape",name:"Pool Patio / Walkways",loc:"Pool area",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"poor",life:[20,40,30],rem:null,cost:[8000,20000],notes:"Settled, cracked. Negative pitch toward foundation.",defs:["Cracked concrete","Negative drainage"],recs:["Concrete contractor to evaluate","Fix drainage"],mt:[],u:"attention",ph:[],fi:[]},
-  {id:"c8",cat:"Landscape",name:"Grading / Drainage",loc:"Perimeter",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"poor",life:null,rem:null,cost:[2000,8000],notes:"Grading pitched toward foundation.",defs:["Negative grading"],recs:["Regrade away from foundation"],mt:[{t:"Check after heavy rain",f:6,c:0,d:true,n:"2025-05-01"}],u:"attention",ph:[],fi:[]},
-  {id:"c9",cat:"Structure",name:"Rear Porch Joists",loc:"Rear porch",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"poor",life:null,rem:null,cost:[2000,6000],notes:"Rotted wood at rear porch.",defs:["Rotted wood joists"],recs:["Contractor to replace"],mt:[],u:"critical",ph:[],fi:[]},
-  {id:"c10",cat:"Roof/Exterior",name:"Gutters & Downspouts",loc:"Perimeter",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"fair",life:[15,30,20],rem:null,cost:[1500,4000],notes:"Full of debris.",defs:["Debris-filled"],recs:["Clean gutters","Check for rust after"],mt:[{t:"Clean gutters",f:6,c:150,d:true,n:"2025-05-01",s:"Spring"},{t:"Inspect for rust",f:12,c:0,d:true,n:"2025-05-15"}],u:"attention",ph:[],fi:[]},
-  {id:"c11",cat:"Roof/Exterior",name:"Brick / Chimney Masonry",loc:"Exterior",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"fair",life:[50,100,75],rem:null,cost:[3000,15000],notes:"Tuck-pointing needed; painted brick trapping moisture.",defs:["Needs tuck-pointing","Spalled brick","Peeling paint"],recs:["Masonry contractor to evaluate"],mt:[{t:"Inspect for cracks",f:12,c:0,d:true,n:"2025-10-01"}],u:"attention",ph:[],fi:[]},
-  {id:"c12",cat:"Plumbing",name:"Sump Pumps",loc:"Basement",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"functional",life:[5,15,10],rem:null,cost:[500,1500],notes:"All tested and working.",defs:[],recs:["Annual service"],mt:[{t:"Test pump",f:3,c:0,d:true,n:"2025-06-01"},{t:"Clean intake",f:6,c:0,d:true,n:"2025-09-01"}],u:"ok",ph:[],fi:[]},
-  {id:"c13",cat:"Appliances",name:"Sub-Zero Refrigerator",loc:"Kitchen",mfr:"Sub-Zero",mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"functional",life:[13,25,19],rem:null,cost:[8000,15000],notes:"Functional. Annual service recommended.",defs:[],recs:["Sub-Zero certified maintenance"],mt:[{t:"Clean condenser coils",f:12,c:0,d:true,n:"2025-09-01"},{t:"Professional service",f:12,c:350,d:false,n:"2025-09-01"}],u:"ok",ph:[],fi:[]},
-  {id:"c14",cat:"Appliances",name:"Gas Range / Cooktop",loc:"Kitchen",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"fair",life:[13,20,16],rem:null,cost:[2000,6000],notes:"Abnormal burner noise at high.",defs:["Abnormal noise"],recs:["Evaluate burner orifices"],mt:[{t:"Clean burner grates",f:1,c:0,d:true,n:"2025-05-01"}],u:"attention",ph:[],fi:[]},
-  {id:"c15",cat:"Appliances",name:"Washing Machine",loc:"Laundry",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"fair",life:[8,14,11],rem:null,cost:[800,1500],notes:"Mildew on gasket; filter needs cleaning.",defs:["Mildew on gasket"],recs:["Clean gasket and filter"],mt:[{t:"Cleaning cycle",f:1,c:3,d:true,n:"2025-05-01"},{t:"Inspect hoses",f:6,c:0,d:true,n:"2025-09-01"}],u:"monitor",ph:[],fi:[]},
-  {id:"c16",cat:"HVAC",name:"Radiant Floor Heat",loc:"2nd floor baths",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"functional",life:[20,35,25],rem:null,cost:[2000,5000],notes:"Working per thermal imaging.",defs:[],recs:[],mt:[],u:"ok",ph:[],fi:[]},
-  {id:"c17",cat:"Safety",name:"Fireplace Doors",loc:"Living areas",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"fair",life:[15,30,20],rem:null,cost:[300,800],notes:"Some doors loose.",defs:["Loose doors"],recs:["Repair or replace"],mt:[],u:"monitor",ph:[],fi:[]},
-  {id:"c18",cat:"Interior",name:"Garage Door Operator",loc:"Garage (left)",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"poor",life:[10,15,12],rem:null,cost:[300,600],notes:"Must hold button to close.",defs:["Requires holding button"],recs:["Garage door service"],mt:[],u:"attention",ph:[],fi:[]},
-  {id:"c19",cat:"Landscape",name:"Trees & Vegetation",loc:"Grounds",mfr:null,mod:null,ser:null,yr:null,conf:"unknown",age:null,cond:"functional",life:null,rem:null,cost:null,notes:"Document and photograph all plantings.",defs:[],recs:["Photograph major trees","Identify species"],mt:[{t:"Spring cleanup",f:12,c:500,d:true,n:"2025-04-15",s:"Spring"},{t:"Fall leaves",f:12,c:300,d:true,n:"2025-10-15",s:"Fall"},{t:"Arborist inspection",f:24,c:250,d:false,n:"2025-06-01"}],u:"ok",ph:[],fi:[]},
-];
-
-const WW = [
-  {id:"w1",cid:"c2",prod:"Rheem Water Heater",prov:"Rheem",cov:"6-year tank and parts",start:"2024-08-01",exp:"2030-08-01",reg:false,note:"Must register for full coverage."},
-  {id:"w2",cid:"c3",prod:"Carrier Furnace",prov:"Carrier",cov:"10-year parts limited",start:"2017-09-01",exp:"2027-09-01",reg:true,note:"Use authorized dealer."},
-  {id:"w3",cid:"c4",prod:"Ducane Central AC",prov:"Ducane",cov:"10-year parts limited",start:"2022-01-01",exp:"2032-01-01",reg:false,note:"Register within 90 days."},
-];
-
-const VV = [
-  {id:"v1",name:"Lake County Roofing",cats:["Roof/Exterior"],ph:"(847) 555-0101",r:4.8,rv:127,note:""},
-  {id:"v2",name:"North Shore HVAC",cats:["HVAC"],ph:"(847) 555-0202",r:4.7,rv:94,note:""},
-  {id:"v3",name:"Mettawa Electric",cats:["Electrical"],ph:"(847) 555-0303",r:4.6,rv:63,note:""},
-  {id:"v4",name:"Reliable Plumbing",cats:["Plumbing"],ph:"(847) 555-0404",r:4.5,rv:211,note:""},
-  {id:"v5",name:"Libertyville Masonry",cats:["Structure"],ph:"(847) 555-0505",r:4.9,rv:48,note:""},
-  {id:"v6",name:"Green Thumb Landscaping",cats:["Landscape"],ph:"(847) 555-0606",r:4.4,rv:156,note:""},
-  {id:"v7",name:"Sub-Zero Wolf Repair",cats:["Appliances"],ph:"(847) 555-0707",r:4.8,rv:35,note:"Factory authorized"},
-];
-
-const LL = [{id:"j1",date:"2024-08-01",cid:"c2",type:"replacement",desc:"New 75-gal Rheem water heater installed",cost:null}];
+import { useState, useRef, useEffect } from "react";
+import { useParams, useOutletContext } from "react-router-dom";
+import { supabase } from "./lib/supabase";
+import { Home, LayoutGrid, Camera, Users, Shield, ClipboardList, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Clock, Eye, Wrench, Star, Phone, Mail, FileText, Upload, Plus, Calendar, DollarSign, ArrowUpRight, Zap, Droplets, Flame, Plug, UtensilsCrossed, TreePine, DoorOpen, ShieldAlert, Info, X, Loader } from "lucide-react";
 
 // Color palette — no red anywhere
 const CL = {
@@ -93,9 +19,9 @@ const UU = {
   ok:{l:"Good",c:CL.ok.main,bg:`linear-gradient(135deg,${CL.ok.light},${CL.ok.mid})`,border:CL.ok.border,icon:CheckCircle2,iconBg:CL.ok.mid},
 };
 
-const catIcons={"Roof/Exterior":Home,"HVAC":Flame,"Plumbing":Droplets,"Electrical":Zap,"Appliances":UtensilsCrossed,"Structure":Wrench,"Landscape":TreePine,"Interior":DoorOpen,"Safety":ShieldAlert};
+const catIcons={"Roof/Exterior":Home,"HVAC":Flame,"Plumbing":Droplets,"Electrical":Zap,"Appliances":UtensilsCrossed,"Structure":Wrench,"Landscape":TreePine,"Interior":DoorOpen,"Safety":ShieldAlert,"Exterior":Home,"Windows":DoorOpen};
 const CATS=["All","Roof/Exterior","HVAC","Plumbing","Electrical","Appliances","Structure","Landscape","Interior","Safety"];
-const mn=d=>new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
+const mn=d=>{try{return new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});}catch(e){return d||"";}};
 const $=n=>"$"+Math.round(n).toLocaleString();
 
 const s={
@@ -103,6 +29,60 @@ const s={
   page:{maxWidth:480,margin:"0 auto",padding:"0 20px"},
   card:{background:"#fff",borderRadius:16,padding:20,boxShadow:"0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)"},
 };
+
+// Map DB item to UI format
+function mapItem(item) {
+  const mt = (item.maintenance || []).map(m => ({
+    t: m.task,
+    f: m.frequency_months || 12,
+    c: m.estimated_cost || 0,
+    d: m.diy || false,
+    s: m.season || null,
+    n: null, // no next date from DB yet
+  }));
+  const age = item.year_installed ? (new Date().getFullYear() - parseInt(item.year_installed)) : null;
+  const lifeMin = item.lifespan_min;
+  const lifeMax = item.lifespan_max;
+  const lifeAvg = lifeMin && lifeMax ? Math.round((lifeMin + lifeMax) / 2) : null;
+  return {
+    id: item.id,
+    cat: item.category,
+    name: item.name,
+    loc: item.location,
+    mfr: item.manufacturer,
+    mod: item.model,
+    ser: item.serial,
+    yr: item.year_installed,
+    conf: item.year_confidence || "unknown",
+    age: age,
+    cond: item.condition,
+    life: lifeMin && lifeMax ? [lifeMin, lifeMax, lifeAvg] : null,
+    rem: age !== null && lifeAvg ? lifeAvg - age : null,
+    cost: item.cost_min && item.cost_max ? [item.cost_min, item.cost_max] : null,
+    notes: item.notes,
+    defs: item.deficiencies || [],
+    recs: item.recommendations || [],
+    mt: mt,
+    u: item.urgency || "monitor",
+    ph: [],
+    fi: [],
+  };
+}
+
+// Map DB warranty to UI format
+function mapWarranty(w) {
+  return {
+    id: w.id,
+    cid: w.item_id,
+    prod: w.product,
+    prov: w.provider,
+    cov: w.coverage,
+    start: null,
+    exp: w.expires_at,
+    reg: w.registered || false,
+    note: w.notes || "",
+  };
+}
 
 function Tag({type,small}){
   const u=UU[type]||UU.ok;const I=u.icon;
@@ -112,7 +92,7 @@ function Tag({type,small}){
 }
 
 function ScoreRing({good,plan,crit,size=120}){
-  const total=good+plan+crit;const r=size/2-8;const circ=2*Math.PI*r;
+  const total=good+plan+crit;if(total===0)return null;const r=size/2-8;const circ=2*Math.PI*r;
   const g=good/total*circ,p=plan/total*circ,cr=crit/total*circ;
   const pct=Math.round(good/total*100);
   return(
@@ -126,48 +106,6 @@ function ScoreRing({good,plan,crit,size=120}){
       <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
         <div style={{fontSize:28,fontWeight:700,color:"#0f172a",lineHeight:1}}>{pct}</div>
         <div style={{fontSize:10,color:"#94a3b8",fontWeight:500,marginTop:2}}>Health</div>
-      </div>
-    </div>
-  );
-}
-
-function ReplacementOptions({compId}){
-  const opts=OPTS[compId];const [open,setOpen]=useState(null);
-  if(!opts)return null;
-  return(
-    <div style={{marginBottom:24}}>
-      <div style={{fontSize:15,fontWeight:700,color:"#0f172a",marginBottom:4}}>Replacement Options</div>
-      <div style={{fontSize:12,color:"#94a3b8",marginBottom:16}}>National averages — get local quotes for accuracy</div>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {opts.map((o,i)=>{
-          const isO=open===i;
-          return(
-            <div key={i} onClick={()=>setOpen(isO?null:i)} style={{...s.card,padding:0,overflow:"hidden",border:isO?`1.5px solid ${CL.attention.main}`:"1.5px solid transparent",cursor:"pointer",transition:"all 0.2s"}}>
-              <div style={{padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:14,fontWeight:600,color:"#0f172a"}}>{o.name}</div>
-                  <div style={{fontSize:12,color:"#94a3b8",marginTop:3}}>Life: {o.life}</div>
-                </div>
-                <div style={{textAlign:"right",flexShrink:0,marginLeft:16}}>
-                  <div style={{fontSize:16,fontWeight:700,color:"#0f172a"}}>{$(o.cost[0])}<span style={{color:"#94a3b8",fontWeight:400}}> – </span>{$(o.cost[1])}</div>
-                </div>
-              </div>
-              {isO&&<div style={{padding:"0 18px 18px",borderTop:"1px solid #f1f5f9"}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginTop:16}}>
-                  <div>
-                    <div style={{fontSize:11,fontWeight:700,color:CL.ok.main,marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Pros</div>
-                    {o.pros.map((p,j)=><div key={j} style={{fontSize:13,color:"#475569",padding:"3px 0",display:"flex",alignItems:"center",gap:6}}><CheckCircle2 size={12} color={CL.ok.ring}/>{p}</div>)}
-                  </div>
-                  <div>
-                    <div style={{fontSize:11,fontWeight:700,color:CL.warn.main,marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Cons</div>
-                    {o.cons.map((c,j)=><div key={j} style={{fontSize:13,color:"#475569",padding:"3px 0",display:"flex",alignItems:"center",gap:6}}><X size={12} color={CL.warn.ring}/>{c}</div>)}
-                  </div>
-                </div>
-                {o.note&&<div style={{fontSize:12,color:"#94a3b8",marginTop:14,padding:"10px 12px",background:"#f8fafc",borderRadius:10,lineHeight:1.5}}><Info size={12} style={{display:"inline",verticalAlign:"-2px",marginRight:4}}/>{o.note}</div>}
-              </div>}
-            </div>
-          );
-        })}
       </div>
     </div>
   );
@@ -231,15 +169,69 @@ function BottomNav({tab,setTab}){
 }
 
 export default function App(){
+  const { homeId } = useParams();
+  const { user } = useOutletContext();
   const [tab,setTab]=useState(0);
-  const [comps,setComps]=useState(CC);
-  const [vendors]=useState(VV);
-  const [log,setLog]=useState(LL);
+  const [comps,setComps]=useState([]);
+  const [warranties,setWarranties]=useState([]);
+  const [log,setLog]=useState([]);
+  const [home,setHome]=useState(null);
+  const [report,setReport]=useState(null);
+  const [loading,setLoading]=useState(true);
   const [sel,setSel]=useState(null);
   const [catF,setCatF]=useState("All");
   const [urgF,setUrgF]=useState("all");
   const pRef=useRef(null);
   const fRef=useRef(null);
+
+  // Fetch data from Supabase
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+
+      // Get home
+      const { data: homeData } = await supabase
+        .from('homes').select('*').eq('id', homeId).single();
+      if (homeData) setHome(homeData);
+
+      // Get latest report
+      const { data: reportData } = await supabase
+        .from('reports').select('*').eq('home_id', homeId)
+        .eq('status', 'COMPLETE').order('created_at', { ascending: false }).limit(1).single();
+      if (reportData) setReport(reportData);
+
+      // Get items
+      const { data: itemsData } = await supabase
+        .from('items').select('*').eq('home_id', homeId);
+      if (itemsData) setComps(itemsData.map(mapItem));
+
+      // Get warranties
+      const { data: warData } = await supabase
+        .from('warranties').select('*').eq('user_id', user.id);
+      if (warData) setWarranties(warData.map(mapWarranty));
+
+      // Get actions (work log)
+      const { data: actData } = await supabase
+        .from('actions').select('*').eq('user_id', user.id);
+      if (actData) setLog(actData.map(a => ({
+        id: a.id, date: a.completed_at, cid: a.item_id,
+        type: a.type, desc: a.description, cost: a.cost,
+      })));
+
+      setLoading(false);
+    };
+    if (homeId) load();
+  }, [homeId, user.id]);
+
+  const P = home ? {
+    address: home.address || "Your Home",
+    city: [home.city, home.state, home.zip].filter(Boolean).join(", "),
+    built: home.year_built,
+    inspected: report?.inspected_at,
+    inspector: report?.inspector,
+    co: report?.company,
+    email: `home-${homeId.slice(0,8)}@inbound.homeguard.app`,
+  } : { address: "Loading...", city: "", built: null, inspected: null, inspector: null, co: null, email: "" };
 
   const addPh=(cid,fl)=>{if(!fl||!cid)return;const a=Array.from(fl).map(f=>({name:f.name,url:URL.createObjectURL(f),sz:(f.size/1024|0)+"KB"}));setComps(p=>p.map(c=>c.id===cid?{...c,ph:[...c.ph,...a]}:c));};
   const addFi=(cid,fl)=>{if(!fl||!cid)return;const a=Array.from(fl).map(f=>({name:f.name,sz:(f.size/1024|0)+"KB"}));setComps(p=>p.map(c=>c.id===cid?{...c,fi:[...c.fi,...a]}:c));};
@@ -250,15 +242,27 @@ export default function App(){
   const planCt=comps.filter(c=>c.u==="attention").length;
   const critCt=crits.length;
   const annual=comps.flatMap(c=>c.mt||[]).reduce((s,t)=>s+(t.c||0)*(12/(t.f||12)),0);
-  const tasks=comps.flatMap(c=>(c.mt||[]).filter(t=>t.n).map(t=>({...t,comp:c.name,cat:c.cat}))).sort((a,b)=>a.n.localeCompare(b.n)).slice(0,6);
+  const tasks=comps.flatMap(c=>(c.mt||[]).filter(t=>t.n).map(t=>({...t,comp:c.name,cat:c.cat}))).sort((a,b)=>(a.n||"").localeCompare(b.n||"")).slice(0,6);
   const today=new Date();
-  const dTo=d=>Math.round((new Date(d)-today)/864e5);
+  const dTo=d=>{try{return Math.round((new Date(d)-today)/864e5);}catch(e){return 999;}};
   const filtered=comps.filter(c=>(catF==="All"||c.cat===catF)&&(urgF==="all"||c.u===urgF));
-  const allPh=comps.flatMap(c=>c.ph.map(p=>({...p,comp:c.name,cid:c.id})));
+  const allPh=comps.flatMap(c=>(c.ph||[]).map(p=>({...p,comp:c.name,cid:c.id})));
+
+  if (loading) {
+    return (
+      <div style={{...s.wrap, display:"flex", alignItems:"center", justifyContent:"center"}}>
+        <div style={{textAlign:"center"}}>
+          <Loader size={28} color={CL.attention.main} style={{animation:"spin 1s linear infinite", margin:"0 auto 12px", display:"block"}}/>
+          <div style={{fontSize:14,color:"#94a3b8"}}>Loading home data...</div>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
+    );
+  }
 
   // ── Detail ──
   if(live){
-    const c=live;const u=UU[c.u]||UU.ok;const cl=CL[c.u]||CL.ok;const hasOpts=OPTS[c.id];const CI=catIcons[c.cat]||Home;
+    const c=live;const u=UU[c.u]||UU.ok;const cl=CL[c.u]||CL.ok;const CI=catIcons[c.cat]||Home;
     return(
       <div style={s.wrap}>
         <div style={s.page}>
@@ -302,9 +306,7 @@ export default function App(){
             </div>)}
           </div>}
 
-          <ReplacementOptions compId={c.id}/>
-
-          {!hasOpts&&c.cost&&(c.cond==="poor"||c.u==="critical")&&(
+          {c.cost&&(c.cond==="poor"||c.u==="critical"||c.u==="attention")&&(
             <div style={{...s.card,marginBottom:24,background:cl.light,border:`1.5px solid ${cl.border}`}}>
               <div style={{fontSize:12,fontWeight:600,color:cl.main,marginBottom:6}}>Estimated Replacement</div>
               <div style={{fontSize:26,fontWeight:700,color:"#0f172a"}}>{$(c.cost[0])} – {$(c.cost[1])}</div>
@@ -368,10 +370,19 @@ export default function App(){
             <span style={{fontSize:13,fontWeight:700,color:CL.attention.main,letterSpacing:"0.04em"}}>HOMEGUARD</span>
           </div>
           <h1 style={{fontSize:26,fontWeight:700,margin:0,letterSpacing:"-0.02em",color:"#0f172a",lineHeight:1.2}}>{P.address}</h1>
-          <div style={{fontSize:13,color:"#94a3b8",marginTop:6,fontWeight:500}}>{P.city} · Built {P.built} · Inspected {mn(P.inspected)}</div>
+          <div style={{fontSize:13,color:"#94a3b8",marginTop:6,fontWeight:500}}>
+            {P.city}{P.built ? ` · Built ${P.built}` : ""}{P.inspected ? ` · Inspected ${mn(P.inspected)}` : ""}
+          </div>
         </div>
 
         {tab===0&&<div style={{display:"flex",flexDirection:"column",gap:20}}>
+          {comps.length === 0 ? (
+            <div style={{...s.card, textAlign:"center", padding:48}}>
+              <LayoutGrid size={36} color="#cbd5e1" style={{margin:"0 auto 12px", display:"block"}}/>
+              <div style={{fontSize:16, fontWeight:600, color:"#94a3b8"}}>No components yet</div>
+              <div style={{fontSize:13, color:"#cbd5e1", marginTop:6}}>Upload an inspection report to get started</div>
+            </div>
+          ) : (<>
           <div style={{...s.card,display:"flex",alignItems:"center",gap:20,padding:24}}>
             <ScoreRing good={goodCt} plan={planCt} crit={critCt}/>
             <div style={{flex:1}}>
@@ -413,10 +424,7 @@ export default function App(){
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:700,fontSize:15,color:"#0f172a"}}>{c.name}</div>
                     <div style={{fontSize:13,color:"#64748b",marginTop:3}}>{c.recs[0]||c.notes}</div>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:10}}>
-                      {c.cost&&<div style={{fontSize:15,fontWeight:700,color:CL.critical.main}}>{$(c.cost[0])} – {$(c.cost[1])}</div>}
-                      {OPTS[c.id]&&<span style={{fontSize:11,fontWeight:600,color:CL.attention.main,background:CL.attention.light,padding:"3px 10px",borderRadius:20}}>{OPTS[c.id].length} options</span>}
-                    </div>
+                    {c.cost&&<div style={{fontSize:15,fontWeight:700,color:CL.critical.main,marginTop:10}}>{$(c.cost[0])} – {$(c.cost[1])}</div>}
                   </div>
                   <ChevronRight size={18} color="#cbd5e1" style={{flexShrink:0,marginTop:2}}/>
                 </div>
@@ -424,7 +432,7 @@ export default function App(){
             );})}
           </div>}
 
-          <div>
+          {tasks.length>0&&<div>
             <div style={{fontSize:16,fontWeight:700,color:"#0f172a",marginBottom:14}}>Upcoming Maintenance</div>
             {tasks.map((t,i)=>{const CI=catIcons[t.cat]||Wrench;return(
               <div key={i} style={{...s.card,marginBottom:8,padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
@@ -434,12 +442,13 @@ export default function App(){
                   <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>{t.comp}</div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontSize:12,fontWeight:600,color:"#64748b"}}>{mn(t.n)}</div>
+                  {t.n&&<div style={{fontSize:12,fontWeight:600,color:"#64748b"}}>{mn(t.n)}</div>}
                   {t.d&&<div style={{fontSize:10,fontWeight:600,color:CL.ok.main,marginTop:2}}>DIY</div>}
                 </div>
               </div>
             );})}
-          </div>
+          </div>}
+          </>)}
         </div>}
 
         {tab===1&&<div style={{paddingTop:4}}>
@@ -488,25 +497,11 @@ export default function App(){
         </div>}
 
         {tab===3&&<div style={{paddingTop:4}}>
-          <div style={{fontSize:18,fontWeight:700,color:"#0f172a",marginBottom:6}}>Recommended Vendors</div>
-          <div style={{fontSize:13,color:"#94a3b8",marginBottom:20}}>Local professionals for your home</div>
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {vendors.map(v=>{const CI=catIcons[v.cats[0]]||Wrench;return(
-              <div key={v.id} style={{...s.card,padding:18}}>
-                <div style={{display:"flex",alignItems:"start",gap:14}}>
-                  <div style={{width:44,height:44,borderRadius:14,background:CL.attention.light,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><CI size={20} color={CL.attention.main}/></div>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
-                      <div style={{fontSize:15,fontWeight:700,color:"#0f172a"}}>{v.name}</div>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}><Star size={13} color="#f59e0b" fill="#f59e0b"/><span style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{v.r}</span><span style={{fontSize:11,color:"#94a3b8"}}>({v.rv})</span></div>
-                    </div>
-                    <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>{v.cats.join(" · ")}</div>
-                    <div style={{display:"flex",alignItems:"center",gap:6,marginTop:10,fontSize:13,color:CL.attention.main,fontWeight:500}}><Phone size={14}/>{v.ph}</div>
-                    {v.note&&<div style={{fontSize:12,color:"#64748b",marginTop:6,padding:"6px 10px",background:"#f8fafc",borderRadius:8}}>{v.note}</div>}
-                  </div>
-                </div>
-              </div>
-            );})}
+          <div style={{fontSize:18,fontWeight:700,color:"#0f172a",marginBottom:6}}>Vendors</div>
+          <div style={{fontSize:13,color:"#94a3b8",marginBottom:20}}>Coming soon — local professionals for your home</div>
+          <div style={{...s.card,textAlign:"center",padding:48}}>
+            <Users size={36} color="#cbd5e1" style={{margin:"0 auto 12px", display:"block"}}/>
+            <div style={{fontSize:14, color:"#94a3b8"}}>Vendor recommendations will be generated based on your location and needs</div>
           </div>
         </div>}
 
@@ -517,8 +512,8 @@ export default function App(){
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><Mail size={16} color="rgba(255,255,255,0.7)"/><span style={{fontSize:12,color:"rgba(255,255,255,0.7)",fontWeight:500}}>Forward warranty emails to</span></div>
             <div style={{fontSize:16,fontWeight:700,color:"#fff",wordBreak:"break-all"}}>{P.email}</div>
           </div>
-          {WW.map(w=>{
-            const d=dTo(w.exp);const ex=d<0;const sn=d>=0&&d<=90;
+          {warranties.length > 0 ? warranties.map(w=>{
+            const d=w.exp?dTo(w.exp):999;const ex=d<0;const sn=d>=0&&d<=90;
             const ty=ex?"critical":sn?"attention":"ok";const cl=CL[ty]||CL.ok;
             return(
               <div key={w.id} style={{...s.card,marginBottom:10,padding:0,overflow:"hidden"}}>
@@ -530,13 +525,18 @@ export default function App(){
                   </div>
                   <div style={{fontSize:13,color:"#64748b",marginBottom:10}}>{w.cov}</div>
                   <div style={{display:"flex",gap:12,fontSize:12}}>
-                    <span style={{color:"#64748b",display:"flex",alignItems:"center",gap:4}}><Calendar size={12}/>Exp {mn(w.exp)}</span>
+                    {w.exp&&<span style={{color:"#64748b",display:"flex",alignItems:"center",gap:4}}><Calendar size={12}/>Exp {mn(w.exp)}</span>}
                     <span style={{fontWeight:600,color:w.reg?CL.ok.main:CL.warn.main,display:"flex",alignItems:"center",gap:4}}>{w.reg?<CheckCircle2 size={12}/>:<AlertTriangle size={12}/>}{w.reg?"Registered":"Not registered"}</span>
                   </div>
                 </div>
               </div>
             );
-          })}
+          }) : (
+            <div style={{...s.card,textAlign:"center",padding:48}}>
+              <Shield size={36} color="#cbd5e1" style={{margin:"0 auto 12px", display:"block"}}/>
+              <div style={{fontSize:14, color:"#94a3b8"}}>No warranties found</div>
+            </div>
+          )}
         </div>}
 
         {tab===5&&<WorkLogPanel log={log} setLog={setLog} comps={comps}/>}

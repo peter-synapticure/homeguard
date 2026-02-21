@@ -3,6 +3,7 @@ import { useParams, useOutletContext } from "react-router-dom";
 import { supabase } from "./lib/supabase";
 import { Home, LayoutGrid, Camera, Users, Shield, ClipboardList, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Clock, Eye, Wrench, Star, Phone, Mail, FileText, Upload, Plus, Calendar, DollarSign, ArrowUpRight, Zap, Droplets, Flame, Plug, UtensilsCrossed, TreePine, DoorOpen, ShieldAlert, Info, X, Loader } from "lucide-react";
 import PdfPhoto from "./components/PdfPhoto";
+import FileCabinet from "./components/FileCabinet";
 import { lookupLifespan, getTypesForCategory, getBrandsForCategory } from "./lib/lifespanData";
 
 // Color palette — no red anywhere
@@ -40,7 +41,7 @@ function mapItem(item) {
     c: m.estimated_cost || 0,
     d: m.diy || false,
     s: m.season || null,
-    n: (() => { const d = new Date(); d.setMonth(d.getMonth() + (m.frequency_months || 12)); return d.toISOString().slice(0,10); })()
+    n: (() => { const d = new Date(); d.setMonth(d.getMonth() + (m.frequency_months || 12)); return d.toISOString().slice(0,10); })(),
   }));
   const age = item.year_installed ? (new Date().getFullYear() - parseInt(item.year_installed)) : null;
   const lifeMin = item.lifespan_min;
@@ -153,7 +154,7 @@ function WorkLogPanel({log,setLog,comps}){
 function BottomNav({tab,setTab}){
   const items=[
     {i:Home,l:"Home",t:0},{i:LayoutGrid,l:"Items",t:1},{i:Camera,l:"Photos",t:2},
-    {i:Users,l:"Vendors",t:3},{i:Shield,l:"Warranties",t:4},{i:ClipboardList,l:"Log",t:5}
+    {i:Users,l:"Vendors",t:3},{i:FileText,l:"Files",t:4},{i:ClipboardList,l:"Log",t:5}
   ];
   return(
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(255,255,255,0.92)",backdropFilter:"blur(20px) saturate(180%)",WebkitBackdropFilter:"blur(20px) saturate(180%)",borderTop:"1px solid rgba(0,0,0,0.06)",zIndex:100,padding:"6px 0 env(safe-area-inset-bottom, 8px)"}}>
@@ -693,39 +694,7 @@ export default function App(){
           </div>
         </div>}
 
-        {tab===4&&<div style={{paddingTop:4}}>
-          <div style={{fontSize:18,fontWeight:700,color:"#0f172a",marginBottom:6}}>Warranties</div>
-          <div style={{fontSize:13,color:"#94a3b8",marginBottom:20}}>Track and manage coverage</div>
-          <div style={{...s.card,marginBottom:20,background:`linear-gradient(135deg,${CL.attention.main},${CL.attention.dark})`,padding:20}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><Mail size={16} color="rgba(255,255,255,0.7)"/><span style={{fontSize:12,color:"rgba(255,255,255,0.7)",fontWeight:500}}>Forward warranty emails to</span></div>
-            <div style={{fontSize:16,fontWeight:700,color:"#fff",wordBreak:"break-all"}}>{P.email}</div>
-          </div>
-          {warranties.length > 0 ? warranties.map(w=>{
-            const d=w.exp?dTo(w.exp):999;const ex=d<0;const sn=d>=0&&d<=90;
-            const ty=ex?"critical":sn?"attention":"ok";const cl=CL[ty]||CL.ok;
-            return(
-              <div key={w.id} style={{...s.card,marginBottom:10,padding:0,overflow:"hidden"}}>
-                <div style={{height:3,background:cl.main}}/>
-                <div style={{padding:"16px 18px"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:8}}>
-                    <div><div style={{fontSize:15,fontWeight:700,color:"#0f172a"}}>{w.prod}</div><div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>{w.prov}</div></div>
-                    <Tag type={ty} small/>
-                  </div>
-                  <div style={{fontSize:13,color:"#64748b",marginBottom:10}}>{w.cov}</div>
-                  <div style={{display:"flex",gap:12,fontSize:12}}>
-                    {w.exp&&<span style={{color:"#64748b",display:"flex",alignItems:"center",gap:4}}><Calendar size={12}/>Exp {mn(w.exp)}</span>}
-                    <span style={{fontWeight:600,color:w.reg?CL.ok.main:CL.warn.main,display:"flex",alignItems:"center",gap:4}}>{w.reg?<CheckCircle2 size={12}/>:<AlertTriangle size={12}/>}{w.reg?"Registered":"Not registered"}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          }) : (
-            <div style={{...s.card,textAlign:"center",padding:48}}>
-              <Shield size={36} color="#cbd5e1" style={{margin:"0 auto 12px", display:"block"}}/>
-              <div style={{fontSize:14, color:"#94a3b8"}}>No warranties found</div>
-            </div>
-          )}
-        </div>}
+        {tab===4&&<FileCabinet user={user} homeId={homeId} warranties={warranties} />}
 
         {tab===5&&<WorkLogPanel log={log} setLog={setLog} comps={comps}/>}
       </div>

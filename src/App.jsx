@@ -4,6 +4,7 @@ import { supabase } from "./lib/supabase";
 import { Home, LayoutGrid, Camera, Users, Shield, ClipboardList, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Clock, Eye, Wrench, Star, Phone, Mail, FileText, Upload, Plus, Calendar, DollarSign, ArrowUpRight, Zap, Droplets, Flame, Plug, UtensilsCrossed, TreePine, DoorOpen, ShieldAlert, Info, X, Loader } from "lucide-react";
 import PdfPhoto from "./components/PdfPhoto";
 import FileCabinet from "./components/FileCabinet";
+import Profile from "./components/Profile";
 import { lookupLifespan, getTypesForCategory, getBrandsForCategory } from "./lib/lifespanData";
 
 // Color palette — no red anywhere
@@ -338,6 +339,7 @@ export default function App(){
   const [sel,setSel]=useState(null);
   const [catF,setCatF]=useState("All");
   const [urgF,setUrgF]=useState("all");
+  const [showProfile,setShowProfile]=useState(false);
   const pRef=useRef(null);
   const fRef=useRef(null);
 
@@ -440,6 +442,11 @@ export default function App(){
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     );
+  }
+
+  // ── Profile ──
+  if (showProfile) {
+    return <Profile user={user} onClose={() => setShowProfile(false)} />;
   }
 
   // ── Detail ──
@@ -554,9 +561,14 @@ export default function App(){
     <div style={s.wrap}>
       <div style={s.page}>
         <div style={{paddingTop:24,marginBottom:28}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-            <div style={{width:32,height:32,borderRadius:10,background:`linear-gradient(135deg,${CL.attention.main},${CL.attention.dark})`,display:"flex",alignItems:"center",justifyContent:"center"}}><Shield size={16} color="#fff" strokeWidth={2.5}/></div>
-            <span style={{fontSize:13,fontWeight:700,color:CL.attention.main,letterSpacing:"0.04em"}}>HOMEGUARD</span>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:32,height:32,borderRadius:10,background:`linear-gradient(135deg,${CL.attention.main},${CL.attention.dark})`,display:"flex",alignItems:"center",justifyContent:"center"}}><Shield size={16} color="#fff" strokeWidth={2.5}/></div>
+              <span style={{fontSize:13,fontWeight:700,color:CL.attention.main,letterSpacing:"0.04em"}}>HOMEGUARD</span>
+            </div>
+            <div onClick={()=>setShowProfile(true)} style={{width:36,height:36,borderRadius:12,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+              <Users size={18} color="#64748b"/>
+            </div>
           </div>
           <h1 style={{fontSize:26,fontWeight:700,margin:0,letterSpacing:"-0.02em",color:"#0f172a",lineHeight:1.2}}>{P.address}</h1>
           <div style={{fontSize:13,color:"#94a3b8",marginTop:6,fontWeight:500}}>

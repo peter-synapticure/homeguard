@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useParams, useOutletContext } from "react-router-dom";
 import { supabase } from "./lib/supabase";
 import { Home, LayoutGrid, Camera, Users, Shield, ClipboardList, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Clock, Eye, Wrench, Star, Phone, Mail, FileText, Upload, Plus, Calendar, DollarSign, ArrowUpRight, Zap, Droplets, Flame, Plug, UtensilsCrossed, TreePine, DoorOpen, ShieldAlert, Info, X, Loader } from "lucide-react";
+import PdfPhoto from "./components/PdfPhoto";
+import { lookupLifespan, getTypesForCategory, getBrandsForCategory } from "./lib/lifespanData";
 
 // Color palette — no red anywhere
 const CL = {
@@ -38,7 +40,7 @@ function mapItem(item) {
     c: m.estimated_cost || 0,
     d: m.diy || false,
     s: m.season || null,
-    n: null, // no next date from DB yet
+    n: (() => { const d = new Date(); d.setMonth(d.getMonth() + (m.frequency_months || 12)); return d.toISOString().slice(0,10); })()
   }));
   const age = item.year_installed ? (new Date().getFullYear() - parseInt(item.year_installed)) : null;
   const lifeMin = item.lifespan_min;
@@ -168,6 +170,158 @@ function BottomNav({tab,setTab}){
   );
 }
 
+function EditableInfo({ comp, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    manufacturer: comp.mfr || "",
+    model: comp.mod || "",
+    serial: comp.ser || "",
+    year_installed: comp.yr || "",
+    lifespan_min: comp.life?.[0] || "",
+    lifespan_max: comp.life?.[1] || "",
+  });
+
+  const inp = { background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", color: "#0f172a", fontSize: 14, width: "100%", outline: "none", boxSizing: "border-box" };
+  const knownBrands = getBrandsForCategory(comp.cat);
+  const knownTypes = getTypesForCategory(comp.cat);
+
+  const handleBrandChange = (val) => {
+    setForm(f => {
+      const updated = { ...f, manufacturer: val };
+      // Auto-lookup lifespan if we have brand
+      if (val) {
+        const lookup = lookupLifespan(comp.cat, val, null);
+        if (lookup && (!f.lifespan_min || !f.lifespan_max)) {
+          updated.lifespan_min = lookup.range[0];
+          updated.lifespan_max = lookup.range[1];
+        }
+      }
+      return updated;
+    });
+  };
+
+  const save = async () => {
+    const updates = {
+      manufacturer: form.manufacturer || null,
+      model: form.model || null,
+      serial: form.serial || null,
+      year_installed: form.year_installed || null,
+      lifespan_min: form.lifespan_min ? parseInt(form.lifespan_min) : null,
+      lifespan_max: form.lifespan_max ? parseInt(form.lifespan_max) : null,
+    };
+    await onSave(comp.id, updates);
+    setEditing(false);
+  };
+
+  // Auto-suggest lifespan from reference
+  const suggestedLife = lookupLifespan(comp.cat, form.manufacturer || comp.mfr, null);
+
+  if (!editing) {
+    const fields = [
+      [comp.mfr, "Manufacturer"],
+      [comp.mod, "Model"],
+      [comp.ser, "Serial"],
+      [comp.yr ? (comp.yr + (comp.conf === "est" ? " (est)" : "")) : null, "Installed"],
+      [comp.age !== null ? (Math.round(comp.age) + "y") : null, "Age"],
+      [comp.cond, "Condition"],
+      [comp.life ? (comp.life[0] + "–" + comp.life[1] + " yrs") : null, "Lifespan"],
+    ];
+    const hasEmpty = !comp.mfr || !comp.mod || !comp.ser || !comp.life;
+
+    return (
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Details</span>
+          <div onClick={() => setEditing(true)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: CL.attention.main, cursor: "pointer", fontWeight: 600 }}>
+            <Plus size={14} />Edit
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 8 }}>
+          {fields.filter(([v]) => v).map(([v, l], i) => (
+            <div key={i} style={{ ...s.card, padding: "14px 16px" }}>
+              <div style={{ fontSize: 10, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{l}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6, color: "#0f172a", textTransform: l === "Condition" ? "capitalize" : "none" }}>{v}</div>
+            </div>
+          ))}
+          {hasEmpty && (
+            <div onClick={() => setEditing(true)} style={{ ...s.card, padding: "14px 16px", border: "1.5px dashed #e2e8f0", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 70 }}>
+              <Plus size={16} color="#94a3b8" />
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, fontWeight: 500 }}>Add info</div>
+            </div>
+          )}
+        </div>
+        {!comp.life && suggestedLife && (
+          <div style={{ marginTop: 8, padding: "10px 14px", background: CL.attention.light, borderRadius: 10, fontSize: 12, color: CL.attention.dark, display: "flex", alignItems: "center", gap: 6 }}>
+            <Info size={14} color={CL.attention.main} />
+            Typical lifespan for {suggestedLife.source}: {suggestedLife.range[0]}–{suggestedLife.range[1]} years
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ ...s.card, marginBottom: 24, border: `1.5px solid ${CL.attention.border}` }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Edit Details</div>
+
+      <div style={{ marginBottom: 10 }}>
+        <label style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>Manufacturer</label>
+        <input
+          list="brands-list"
+          value={form.manufacturer}
+          onChange={e => handleBrandChange(e.target.value)}
+          placeholder="e.g. Carrier, Rheem, Sub-Zero"
+          style={inp}
+        />
+        <datalist id="brands-list">
+          {knownBrands.map(b => <option key={b} value={b} />)}
+        </datalist>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+        <div>
+          <label style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>Model</label>
+          <input value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} placeholder="Model #" style={inp} />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>Serial</label>
+          <input value={form.serial} onChange={e => setForm({ ...form, serial: e.target.value })} placeholder="Serial #" style={inp} />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 10 }}>
+        <label style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>Year Installed</label>
+        <input value={form.year_installed} onChange={e => setForm({ ...form, year_installed: e.target.value })} placeholder="e.g. 2018" style={inp} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 6 }}>
+        <div>
+          <label style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>Lifespan Min (yrs)</label>
+          <input type="number" value={form.lifespan_min} onChange={e => setForm({ ...form, lifespan_min: e.target.value })} placeholder="—" style={inp} />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>Lifespan Max (yrs)</label>
+          <input type="number" value={form.lifespan_max} onChange={e => setForm({ ...form, lifespan_max: e.target.value })} placeholder="—" style={inp} />
+        </div>
+      </div>
+
+      {suggestedLife && (
+        <div
+          onClick={() => setForm(f => ({ ...f, lifespan_min: suggestedLife.range[0], lifespan_max: suggestedLife.range[1] }))}
+          style={{ marginBottom: 16, padding: "8px 12px", background: CL.attention.light, borderRadius: 8, fontSize: 12, color: CL.attention.main, cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}
+        >
+          <Info size={12} /> Use reference: {suggestedLife.source} ({suggestedLife.range[0]}–{suggestedLife.range[1]} yrs)
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 10 }}>
+        <div onClick={() => setEditing(false)} style={{ flex: 1, padding: 12, borderRadius: 12, textAlign: "center", fontWeight: 600, fontSize: 14, cursor: "pointer", background: "#f1f5f9", color: "#64748b" }}>Cancel</div>
+        <div onClick={save} style={{ flex: 1, padding: 12, borderRadius: 12, textAlign: "center", fontWeight: 600, fontSize: 14, cursor: "pointer", background: `linear-gradient(135deg,${CL.attention.main},${CL.attention.dark})`, color: "#fff" }}>Save</div>
+      </div>
+    </div>
+  );
+}
+
 export default function App(){
   const { homeId } = useParams();
   const { user } = useOutletContext();
@@ -178,6 +332,8 @@ export default function App(){
   const [home,setHome]=useState(null);
   const [report,setReport]=useState(null);
   const [loading,setLoading]=useState(true);
+  const [photoMap,setPhotoMap]=useState([]);
+  const [pdfPath,setPdfPath]=useState(null);
   const [sel,setSel]=useState(null);
   const [catF,setCatF]=useState("All");
   const [urgF,setUrgF]=useState("all");
@@ -198,7 +354,11 @@ export default function App(){
       const { data: reportData } = await supabase
         .from('reports').select('*').eq('home_id', homeId)
         .eq('status', 'COMPLETE').order('created_at', { ascending: false }).limit(1).single();
-      if (reportData) setReport(reportData);
+      if (reportData) {
+        setReport(reportData);
+        if (reportData.parsed_json?.photo_map) setPhotoMap(reportData.parsed_json.photo_map);
+        if (reportData.file_path) setPdfPath(reportData.file_path);
+      }
 
       // Get items
       const { data: itemsData } = await supabase
@@ -222,6 +382,27 @@ export default function App(){
     };
     if (homeId) load();
   }, [homeId, user.id]);
+
+  // Save edits to an item
+  const saveItem = async (itemId, updates) => {
+    const { error } = await supabase.from('items').update(updates).eq('id', itemId);
+    if (!error) {
+      setComps(prev => prev.map(c => {
+        if (c.id !== itemId) return c;
+        return {
+          ...c,
+          mfr: updates.manufacturer ?? c.mfr,
+          mod: updates.model ?? c.mod,
+          ser: updates.serial ?? c.ser,
+          yr: updates.year_installed ?? c.yr,
+          life: updates.lifespan_min && updates.lifespan_max
+            ? [updates.lifespan_min, updates.lifespan_max, Math.round((updates.lifespan_min + updates.lifespan_max) / 2)]
+            : c.life,
+          age: updates.year_installed ? (new Date().getFullYear() - parseInt(updates.year_installed)) : c.age,
+        };
+      }));
+    }
+  };
 
   const P = home ? {
     address: home.address || "Your Home",
@@ -278,14 +459,7 @@ export default function App(){
             </div>
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8,marginBottom:24}}>
-            {[[c.mfr,"Manufacturer"],[c.mod,"Model"],[c.ser,"Serial"],[c.yr?(c.yr+(c.conf==="est"?" (est)":"")):null,"Installed"],[c.age!==null?(Math.round(c.age)+"y"):null,"Age"],[c.cond,"Condition"],[c.life?(c.life[0]+"–"+c.life[1]+" yrs"):null,"Lifespan"]].filter(([v])=>v).map(([v,l],i)=>(
-              <div key={i} style={{...s.card,padding:"14px 16px"}}>
-                <div style={{fontSize:10,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>{l}</div>
-                <div style={{fontSize:14,fontWeight:600,marginTop:6,color:"#0f172a",textTransform:l==="Condition"?"capitalize":"none"}}>{v}</div>
-              </div>
-            ))}
-          </div>
+          <EditableInfo comp={c} onSave={saveItem} />
 
           {c.notes&&<div style={{...s.card,marginBottom:16,borderLeft:`3px solid ${cl.main}`}}>
             <div style={{fontSize:11,color:"#94a3b8",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Inspector Notes</div>
@@ -338,8 +512,22 @@ export default function App(){
               <div onClick={()=>pRef.current?.click()} style={{display:"flex",alignItems:"center",gap:4,fontSize:13,color:CL.attention.main,cursor:"pointer",fontWeight:600}}><Plus size={16}/>Add</div>
             </div>
             <input ref={pRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>addPh(c.id,e.target.files)}/>
-            {c.ph.length>0?<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>{c.ph.map((p,i)=><div key={i} style={{aspectRatio:"1",borderRadius:12,overflow:"hidden",background:"#f1f5f9"}}><img src={p.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>)}</div>
-            :<div style={{...s.card,textAlign:"center",padding:32,color:"#cbd5e1"}}><Camera size={28} style={{margin:"0 auto 8px",display:"block"}}/><div style={{fontSize:13}}>No photos yet</div></div>}
+            {(() => {
+              const matchingPhotos = photoMap.filter(p => p.item_name === c.name);
+              const hasUploaded = c.ph.length > 0;
+              const hasPdfPhotos = matchingPhotos.length > 0 && pdfPath;
+              if (!hasUploaded && !hasPdfPhotos) {
+                return <div style={{...s.card,textAlign:"center",padding:32,color:"#cbd5e1"}}><Camera size={28} style={{margin:"0 auto 8px",display:"block"}}/><div style={{fontSize:13}}>No photos yet</div></div>;
+              }
+              return (
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {hasPdfPhotos && matchingPhotos.map((p,i) => (
+                    <PdfPhoto key={"pdf-"+i} filePath={pdfPath} page={p.page} description={p.description} />
+                  ))}
+                  {hasUploaded && <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>{c.ph.map((p,i)=><div key={i} style={{aspectRatio:"1",borderRadius:12,overflow:"hidden",background:"#f1f5f9"}}><img src={p.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>)}</div>}
+                </div>
+              );
+            })()}
           </div>
 
           <div style={{marginBottom:20}}>

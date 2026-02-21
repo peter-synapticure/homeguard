@@ -47,13 +47,11 @@ Deno.serve(async (req) => {
       .download(report.file_path);
 
     if (dlErr || !fileData) throw new Error("Failed to download PDF: " + (dlErr?.message || "unknown"));
-
-    console.log("PDF downloaded, size:", (fileData.size / 1024 / 1024).toFixed(2) + "MB");
+    console.log("PDF downloaded:", (fileData.size / 1024 / 1024).toFixed(2) + "MB");
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) throw new Error("OPENAI_API_KEY not set");
 
-    // Upload directly to OpenAI — no base64 conversion needed
     console.log("Uploading to OpenAI Files API...");
     const formData = new FormData();
     formData.append("purpose", "assistants");
@@ -75,8 +73,6 @@ Deno.serve(async (req) => {
     const fileId = uploadData.id;
     console.log("File uploaded, id:", fileId);
 
-    // Free memory
-    const fileName = report.file_name;
     const homeId = report.home_id;
     const userId = report.user_id;
 
@@ -93,13 +89,80 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a home inspection report parser. Return a JSON object with this structure:\n{\"inspector\":string|null,\"company\":string|null,\"inspection_date\":string|null,\"address\":string|null,\"city\":string|null,\"state\":string|null,\"zip\":string|null,\"year_built\":number|null,\"items\":[{\"category\":\"Roof/Exterior\"|\"HVAC\"|\"Plumbing\"|\"Electrical\"|\"Appliances\"|\"Structure\"|\"Landscape\"|\"Interior\"|\"Safety\",\"name\":string,\"location\":string|null,\"manufacturer\":string|null,\"model\":string|null,\"serial\":string|null,\"year_installed\":string|null,\"year_confidence\":\"exact\"|\"est\"|\"unknown\",\"condition\":\"poor\"|\"fair\"|\"functional\"|\"good\",\"urgency\":\"critical\"|\"attention\"|\"monitor\"|\"ok\",\"lifespan_min_years\":number|null,\"lifespan_max_years\":number|null,\"cost_min\":number|null,\"cost_max\":number|null,\"notes\":string|null,\"deficiencies\":[string],\"recommendations\":[string],\"maintenance\":[{\"task\":string,\"frequency_months\":number,\"estimated_cost\":number,\"diy\":boolean,\"season\":string|null}]}],\"warranties\":[{\"product\":string,\"provider\":string|null,\"coverage\":string|null,\"expires\":string|null,\"registered\":boolean|null}]}\n\nRules: Extract ALL components. Only facts from the document. null if not stated. urgency: critical=safety/must fix, attention=plan/budget, monitor=watch, ok=good. Cost estimates in USD national averages.",
+            content: `You are a home inspection report parser and cost estimator. Return a JSON object with this structure:
+{
+  "inspector": string or null,
+  "company": string or null,
+  "inspection_date": string or null,
+  "address": string or null,
+  "city": string or null,
+  "state": string or null,
+  "zip": string or null,
+  "year_built": number or null,
+  "items": [
+    {
+      "category": one of "Roof/Exterior", "HVAC", "Plumbing", "Electrical", "Appliances", "Structure", "Landscape", "Interior", "Safety",
+      "name": string,
+      "location": string or null,
+      "manufacturer": string or null,
+      "model": string or null,
+      "serial": string or null,
+      "year_installed": string or null,
+      "year_confidence": "exact" or "est" or "unknown",
+      "condition": "poor" or "fair" or "functional" or "good",
+      "urgency": "critical" or "attention" or "monitor" or "ok",
+      "lifespan_min_years": number,
+      "lifespan_max_years": number,
+      "cost_min": number,
+      "cost_max": number,
+      "notes": string or null,
+      "deficiencies": [string],
+      "recommendations": [string],
+      "maintenance": [{"task": string, "frequency_months": number, "estimated_cost": number, "diy": boolean, "season": string or null}],
+      "photo_pages": [number]
+    }
+  ],
+  "warranties": [{"product": string, "provider": string or null, "coverage": string or null, "expires": string or null, "registered": boolean or null}],
+  "photo_map": [{"page": number, "description": string, "item_name": string}]
+}
+
+CRITICAL RULES — YOU MUST FOLLOW ALL OF THESE:
+
+1. COST ESTIMATES ARE REQUIRED FOR EVERY ITEM. Never leave cost_min or cost_max as null or 0. Use national average replacement/repair costs in USD. Examples:
+   - Roof replacement: $8,000–$25,000
+   - HVAC system: $3,000–$8,000
+   - Water heater: $1,200–$3,500
+   - Electrical panel: $1,500–$4,000
+   - Windows (whole house): $5,000–$20,000
+   - Smoke detectors: $30–$100
+   Even structural items like "grading" or "exterior walls" have repair costs. Estimate them.
+
+2. LIFESPAN IS REQUIRED FOR EVERY ITEM. Use industry standard expected useful life ranges. Never leave as null.
+
+3. MAINTENANCE IS REQUIRED FOR EVERY ITEM. Every home component needs at least one maintenance task. Use industry-standard schedules. Include realistic costs. Examples:
+   - Roof: Visual inspection every 6 months ($0, DIY), Professional inspection every 24 months ($300-500)
+   - HVAC: Replace filter every 3 months ($25, DIY), Professional tune-up every 12 months ($150-200)
+   - Plumbing: Check for leaks every 6 months ($0, DIY)
+   - Electrical: Visual inspection every 12 months ($0, DIY)
+   - Smoke detectors: Test monthly ($0, DIY), Replace batteries every 12 months ($10, DIY)
+
+4. Extract ALL components mentioned in the report — do not skip any.
+
+5. For appliances: ALWAYS extract manufacturer, model, serial if visible in photos or text.
+
+6. year_confidence: "exact" if year stated, "est" if estimated, "unknown" if not mentioned.
+
+7. urgency: "critical" = safety hazard or must fix immediately, "attention" = plan/budget within 1-2 years, "monitor" = watch over time, "ok" = good condition.
+
+8. photo_pages: list the 1-based page numbers where photos of this item appear.
+
+9. photo_map: for every page with an inspection photo, list page number, description, and matching item_name.`,
           },
           {
             role: "user",
             content: [
               { type: "file", file: { file_id: fileId } },
-              { type: "text", text: "Parse this home inspection report. Extract every component inspected." },
+              { type: "text", text: "Parse this home inspection report. Extract every component. You MUST provide cost estimates, lifespan ranges, and maintenance schedules for every single item — no exceptions. Identify all photo pages." },
             ],
           },
         ],
@@ -120,7 +183,7 @@ Deno.serve(async (req) => {
     if (!rawText) throw new Error("No content in OpenAI response");
 
     const parsed = JSON.parse(rawText);
-    console.log("Extracted", (parsed.items?.length || 0), "items");
+    console.log("Extracted", (parsed.items?.length || 0), "items,", (parsed.photo_map?.length || 0), "photo mappings");
 
     await supabase
       .from("reports")

@@ -295,8 +295,7 @@ export default function UploadPage() {
           <div style={{ fontSize: 13, fontWeight: 600, color: '#64748b', marginBottom: 10 }}>What happens next?</div>
           {[
             ['Upload', 'Your PDF is stored securely'],
-            ['Extract', 'AI reads every component, issue, and recommendation'],
-            ['Verify', 'A second AI checks for accuracy'],
+            ['Analyze', 'AI analyzes your home\'s components and estimates costs'],
             ['Review', 'You review and approve the results'],
           ].map(([t, d], i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>

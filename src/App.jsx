@@ -115,10 +115,10 @@ function ScoreRing({good,plan,crit,size=120}){
   );
 }
 
-function WorkLogPanel({log,setLog,comps}){
+function WorkLogPanel({log,setLog,comps,userId}){
   const [on,setOn]=useState(false);
   const [nj,setNj]=useState({date:"",cid:"",type:"maintenance",desc:"",cost:""});
-  const save=()=>{if(!nj.desc.trim())return;setLog(p=>[...p,{id:"j"+Date.now(),date:nj.date,cid:nj.cid,type:nj.type,desc:nj.desc,cost:nj.cost?parseFloat(nj.cost):null}]);setNj({date:"",cid:"",type:"maintenance",desc:"",cost:""});setOn(false);};
+  const save=async()=>{if(!nj.desc.trim())return;const cost=nj.cost?parseFloat(nj.cost):null;const row={user_id:userId,item_id:nj.cid||null,type:nj.type,description:nj.desc,cost:cost,completed_at:nj.date||null};const{data,error}=await supabase.from('actions').insert(row).select().single();if(!error&&data){setLog(p=>[...p,{id:data.id,date:data.completed_at,cid:data.item_id,type:data.type,desc:data.description,cost:data.cost}]);}else{setLog(p=>[...p,{id:"j"+Date.now(),date:nj.date,cid:nj.cid,type:nj.type,desc:nj.desc,cost:cost}]);}setNj({date:"",cid:"",type:"maintenance",desc:"",cost:""});setOn(false);};
   const inp={background:"#f8fafc",border:"1.5px solid #e2e8f0",borderRadius:12,padding:"12px 14px",color:"#0f172a",fontSize:14,width:"100%",outline:"none",boxSizing:"border-box",transition:"border 0.2s"};
   return(
     <div style={{paddingTop:24}}>
@@ -366,7 +366,23 @@ export default function App(){
       // Get items
       const { data: itemsData } = await supabase
         .from('items').select('*').eq('home_id', homeId);
-      if (itemsData) setComps(itemsData.map(mapItem));
+      const mapped = itemsData ? itemsData.map(mapItem) : [];
+
+      // Get item photos from documents
+      const { data: photoDocs } = await supabase
+        .from('documents').select('*').eq('home_id', homeId)
+        .eq('category', 'Photos').not('item_id', 'is', null);
+      if (photoDocs && photoDocs.length > 0) {
+        const urls = await Promise.all(photoDocs.map(async (d) => {
+          const { data: urlData } = await supabase.storage.from('reports').createSignedUrl(d.file_path, 31536000);
+          return { ...d, signedUrl: urlData?.signedUrl };
+        }));
+        urls.filter(u => u.signedUrl).forEach(u => {
+          const item = mapped.find(c => c.id === u.item_id);
+          if (item) item.ph.push({ name: u.name, url: u.signedUrl, sz: u.file_size ? (u.file_size / 1024 | 0) + "KB" : "", path: u.file_path });
+        });
+      }
+      setComps(mapped);
 
       // Get warranties
       const { data: warData } = await supabase
@@ -417,7 +433,7 @@ export default function App(){
     email: `home-${homeId.slice(0,8)}@inbound.homeguard.app`,
   } : { address: "Loading...", city: "", built: null, inspected: null, inspector: null, co: null, email: "" };
 
-  const addPh=(cid,fl)=>{if(!fl||!cid)return;const a=Array.from(fl).map(f=>({name:f.name,url:URL.createObjectURL(f),sz:(f.size/1024|0)+"KB"}));setComps(p=>p.map(c=>c.id===cid?{...c,ph:[...c.ph,...a]}:c));};
+  const addPh=async(cid,fl)=>{if(!fl||!cid)return;const files=Array.from(fl);for(const f of files){const fileId=crypto.randomUUID();const ext=f.name.split('.').pop()||'jpg';const path=`${user.id}/${homeId}/photos/${fileId}.${ext}`;const{error:upErr}=await supabase.storage.from('reports').upload(path,f,{contentType:f.type});if(upErr)continue;const{error:dbErr}=await supabase.from('documents').insert({user_id:user.id,home_id:homeId,item_id:cid,category:'Photos',name:f.name,file_path:path,file_size:f.size,mime_type:f.type});if(dbErr)continue;const{data:urlData}=await supabase.storage.from('reports').createSignedUrl(path,31536000);if(urlData?.signedUrl){setComps(p=>p.map(c=>c.id===cid?{...c,ph:[...c.ph,{name:f.name,url:urlData.signedUrl,sz:(f.size/1024|0)+"KB",path:path}]}:c));}}};
   const addFi=(cid,fl)=>{if(!fl||!cid)return;const a=Array.from(fl).map(f=>({name:f.name,sz:(f.size/1024|0)+"KB"}));setComps(p=>p.map(c=>c.id===cid?{...c,fi:[...c.fi,...a]}:c));};
 
   const live=sel?comps.find(x=>x.id===sel.id):null;
@@ -708,7 +724,7 @@ export default function App(){
 
         {tab===4&&<FileCabinet user={user} homeId={homeId} warranties={warranties} />}
 
-        {tab===5&&<WorkLogPanel log={log} setLog={setLog} comps={comps}/>}
+        {tab===5&&<WorkLogPanel log={log} setLog={setLog} comps={comps} userId={user.id}/>}
       </div>
       <BottomNav tab={tab} setTab={t=>{setSel(null);setTab(t);}}/>
     </div>

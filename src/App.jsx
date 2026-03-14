@@ -5,6 +5,7 @@ import { Home, LayoutGrid, Camera, Users, Shield, ClipboardList, ChevronLeft, Ch
 import PdfPhoto from "./components/PdfPhoto";
 import FileCabinet from "./components/FileCabinet";
 import Profile from "./components/Profile";
+import DeviceScan from "./components/DeviceScan";
 import { lookupLifespan, getTypesForCategory, getBrandsForCategory } from "./lib/lifespanData";
 
 // Color palette — no red anywhere
@@ -340,6 +341,8 @@ export default function App(){
   const [catF,setCatF]=useState("All");
   const [urgF,setUrgF]=useState("all");
   const [showProfile,setShowProfile]=useState(false);
+  const [showScan,setShowScan]=useState(false);
+  const [showItemScan,setShowItemScan]=useState(false);
   const pRef=useRef(null);
   const fRef=useRef(null);
 
@@ -436,6 +439,65 @@ export default function App(){
   const addPh=async(cid,fl)=>{if(!fl||!cid)return;const files=Array.from(fl);for(const f of files){const fileId=crypto.randomUUID();const ext=f.name.split('.').pop()||'jpg';const path=`${user.id}/${homeId}/photos/${fileId}.${ext}`;const{error:upErr}=await supabase.storage.from('reports').upload(path,f,{contentType:f.type});if(upErr)continue;const{error:dbErr}=await supabase.from('documents').insert({user_id:user.id,home_id:homeId,item_id:cid,category:'Photos',name:f.name,file_path:path,file_size:f.size,mime_type:f.type});if(dbErr)continue;const{data:urlData}=await supabase.storage.from('reports').createSignedUrl(path,31536000);if(urlData?.signedUrl){setComps(p=>p.map(c=>c.id===cid?{...c,ph:[...c.ph,{name:f.name,url:urlData.signedUrl,sz:(f.size/1024|0)+"KB",path:path}]}:c));}}};
   const addFi=(cid,fl)=>{if(!fl||!cid)return;const a=Array.from(fl).map(f=>({name:f.name,sz:(f.size/1024|0)+"KB"}));setComps(p=>p.map(c=>c.id===cid?{...c,fi:[...c.fi,...a]}:c));};
 
+  // Standalone scan: create new item from photo
+  const onScanNewDevice = async (device, photoPath) => {
+    const newItem = {
+      home_id: homeId, user_id: user.id,
+      category: device.category, name: device.name, location: null,
+      manufacturer: device.manufacturer, model: device.model, serial: device.serial,
+      year_installed: device.year_installed, year_confidence: device.year_confidence || "unknown",
+      condition: device.condition, urgency: device.urgency || "ok",
+      lifespan_min: device.lifespan_min_years, lifespan_max: device.lifespan_max_years,
+      cost_min: device.cost_min, cost_max: device.cost_max,
+      notes: device.notes, deficiencies: device.deficiencies || [],
+      recommendations: device.recommendations || [], maintenance: device.maintenance || [],
+    };
+    const { data, error } = await supabase.from('items').insert(newItem).select().single();
+    if (!error && data) {
+      setComps(prev => [...prev, mapItem(data)]);
+      // Save scan photo as item photo
+      await supabase.from('documents').insert({
+        user_id: user.id, home_id: homeId, item_id: data.id,
+        category: 'Photos', name: 'Device scan', file_path: photoPath,
+        file_size: 0, mime_type: 'image/jpeg',
+      });
+      // Add signed URL to the new item's photos
+      const { data: urlData } = await supabase.storage.from('reports').createSignedUrl(photoPath, 31536000);
+      if (urlData?.signedUrl) {
+        setComps(p => p.map(c => c.id === data.id ? { ...c, ph: [{ name: 'Device scan', url: urlData.signedUrl, sz: '', path: photoPath }] } : c));
+      }
+    }
+    setShowScan(false);
+  };
+
+  // Item scan: update existing item with extracted fields
+  const onScanExistingDevice = async (device, photoPath) => {
+    const c = sel || live;
+    if (!c) return;
+    const updates = {
+      manufacturer: device.manufacturer || c.mfr || null,
+      model: device.model || c.mod || null,
+      serial: device.serial || c.ser || null,
+      year_installed: c.yr || device.year_installed || null,
+      lifespan_min: c.life?.[0] || device.lifespan_min_years || null,
+      lifespan_max: c.life?.[1] || device.lifespan_max_years || null,
+      cost_min: c.cost?.[0] || device.cost_min || null,
+      cost_max: c.cost?.[1] || device.cost_max || null,
+    };
+    await saveItem(c.id, updates);
+    // Save scan photo as item photo
+    await supabase.from('documents').insert({
+      user_id: user.id, home_id: homeId, item_id: c.id,
+      category: 'Photos', name: 'Device scan', file_path: photoPath,
+      file_size: 0, mime_type: 'image/jpeg',
+    });
+    const { data: urlData } = await supabase.storage.from('reports').createSignedUrl(photoPath, 31536000);
+    if (urlData?.signedUrl) {
+      setComps(p => p.map(x => x.id === c.id ? { ...x, ph: [...x.ph, { name: 'Device scan', url: urlData.signedUrl, sz: '', path: photoPath }] } : x));
+    }
+    setShowItemScan(false);
+  };
+
   const live=sel?comps.find(x=>x.id===sel.id):null;
   const crits=comps.filter(c=>c.u==="critical");
   const goodCt=comps.filter(c=>c.u==="ok"||c.u==="monitor").length;
@@ -472,7 +534,7 @@ export default function App(){
       <div style={s.wrap}>
         <div style={s.page}>
           <div style={{paddingTop:20,marginBottom:24}}>
-            <div onClick={()=>setSel(null)} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:14,color:"#64748b",cursor:"pointer",fontWeight:500,padding:"8px 0"}}><ChevronLeft size={18}/>Back</div>
+            <div onClick={()=>{setSel(null);setShowItemScan(false);}} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:14,color:"#64748b",cursor:"pointer",fontWeight:500,padding:"8px 0"}}><ChevronLeft size={18}/>Back</div>
           </div>
           <div style={{display:"flex",alignItems:"start",gap:16,marginBottom:24}}>
             <div style={{width:52,height:52,borderRadius:16,background:u.iconBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><CI size={24} color={u.c}/></div>
@@ -484,6 +546,12 @@ export default function App(){
           </div>
 
           <EditableInfo comp={c} onSave={saveItem} />
+
+          {showItemScan && <DeviceScan homeId={homeId} userId={user.id} itemId={c.id} onComplete={onScanExistingDevice} onCancel={()=>setShowItemScan(false)} />}
+          {!showItemScan && <div onClick={()=>setShowItemScan(true)} style={{...s.card,padding:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:24,background:CL.attention.light,border:`1.5px solid ${CL.attention.border}`,borderRadius:14}}>
+            <Camera size={16} color={CL.attention.main}/>
+            <span style={{fontSize:14,fontWeight:600,color:CL.attention.main}}>Scan device to fill details</span>
+          </div>}
 
           {c.notes&&<div style={{...s.card,marginBottom:16,borderLeft:`3px solid ${cl.main}`}}>
             <div style={{fontSize:11,color:"#94a3b8",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Inspector Notes</div>
@@ -593,11 +661,16 @@ export default function App(){
         </div>
 
         {tab===0&&<div style={{display:"flex",flexDirection:"column",gap:20}}>
+          {showScan && <DeviceScan homeId={homeId} userId={user.id} itemId={null} onComplete={onScanNewDevice} onCancel={()=>setShowScan(false)} />}
+          {!showScan && <div onClick={()=>setShowScan(true)} style={{...s.card,padding:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:`linear-gradient(135deg,${CL.attention.light},${CL.attention.mid})`,border:`1.5px solid ${CL.attention.border}`}}>
+            <Camera size={18} color={CL.attention.main}/>
+            <span style={{fontSize:15,fontWeight:600,color:CL.attention.main}}>Scan a Device</span>
+          </div>}
           {comps.length === 0 ? (
             <div style={{...s.card, textAlign:"center", padding:48}}>
               <LayoutGrid size={36} color="#cbd5e1" style={{margin:"0 auto 12px", display:"block"}}/>
               <div style={{fontSize:16, fontWeight:600, color:"#94a3b8"}}>No components yet</div>
-              <div style={{fontSize:13, color:"#cbd5e1", marginTop:6}}>Upload an inspection report to get started</div>
+              <div style={{fontSize:13, color:"#cbd5e1", marginTop:6}}>Upload an inspection report or scan a device to get started</div>
             </div>
           ) : (<>
           <div style={{...s.card,display:"flex",alignItems:"center",gap:20,padding:24}}>

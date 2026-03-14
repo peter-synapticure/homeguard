@@ -20,7 +20,14 @@ export default function Dashboard() {
 
   const load = async () => {
     const { data } = await supabase.from('homes').select('*').order('created_at', { ascending: false })
-    setHomes(data || [])
+    const list = data || []
+    if (list.length === 1) {
+      const { data: rpt } = await supabase
+        .from('reports').select('id').eq('home_id', list[0].id)
+        .eq('status', 'COMPLETE').limit(1).single()
+      if (rpt) { nav(`/home/${list[0].id}`); return }
+    }
+    setHomes(list)
     setLoading(false)
   }
 
